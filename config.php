@@ -2,7 +2,7 @@
 // config.php
 
 $host = "localhost";      // XAMPP runs MySQL locally
-$dbname = "kings escape"; // Change this to your actual database name
+$dbname = "kings_escape"; // Change this to your actual database name
 $username = "root";       // Default XAMPP username
 $password = "";           // Default XAMPP password is empty
 

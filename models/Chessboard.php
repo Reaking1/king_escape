@@ -33,6 +33,13 @@ class Chessboard {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    // Get ALL pieces (regardless of move number)
+    public function getAllPieces() {
+        $sql = "SELECT * FROM {$this->table} ORDER BY move_number ASC";
+        $stmt = $this->conn->query($sql);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     // Get King’s current position
     public function getKingPosition($moveNumber) {
         $sql = "SELECT position_x, position_y 
@@ -71,5 +78,11 @@ class Chessboard {
 
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row['cnt'] > 0;
+    }
+
+    // Clear the board
+    public function resetBoard() {
+        $sql = "DELETE FROM {$this->table}";
+        return $this->conn->exec($sql);
     }
 }
