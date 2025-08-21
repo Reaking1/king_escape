@@ -7,17 +7,20 @@ require_once __DIR__ . '/controllers/GameController2.php'; // correct controller
 // Instantiate the controller
 $game = new GamesController($pdo);
 
-// Handle "Start Game" action
-if (isset($_POST['start_game'])) {
-    $game->startGame();
-}
+// Determine action from query parameter
+$action = $_GET['action'] ?? 'home';
 
-// Handle "Move King" action
-$moveMessage = '';
-if (isset($_POST['king_move'])) {
+// Handle form submissions first
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Handle "Start Game" action
+    if (isset($_POST['start_game'])) {
+        $game->startGame();
+    }
+
+    // Handle "Move King" action
+    if (isset($_POST['king_move'])) {
     $newPos = strtoupper(trim($_POST['king_move']));
 
-    // Convert chess notation (e.g., E2) to coordinates
     $cols = ['A'=>1,'B'=>2,'C'=>3,'D'=>4,'E'=>5,'F'=>6,'G'=>7,'H'=>8];
     $col = substr($newPos,0,1);
     $row = intval(substr($newPos,1));
@@ -25,24 +28,31 @@ if (isset($_POST['king_move'])) {
     if (isset($cols[$col])) {
         $x = $cols[$col];
         $y = $row;
-        if ($game->moveKing($x, $y)) {
-            $moveMessage = "King moved to $newPos";
-        } else {
-            $moveMessage = "Invalid move: $newPos";
-        }
+        $moveMessage = $game->moveKing($x, $y)
+            ? "King moved to $newPos"
+            : "Invalid move: $newPos";
     } else {
         $moveMessage = "Invalid move: $newPos";
     }
 }
 
-// Get current board state
-$pieces = $game->getBoardState();
+}
 
 // Load header
 include __DIR__ . '/views/partials/header.php';
 
-// Main content
-include __DIR__ . '/views/game.php';
+// Route based on action
+switch ($action) {
+    case 'play_game':
+        // Get current board state
+        $pieces = $game->getBoardState();
+        include __DIR__ . '/views/game.php';
+        break;
 
-// Footer
+    default:
+        include __DIR__ . '/views/home.php'; // create a simple home page
+        break;
+}
+
+// Load footer
 include __DIR__ . '/views/partials/footer.php';

@@ -1,0 +1,105 @@
+/* assets/css/styles.css */
+
+/* General body styles */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f5f5f5;
+    margin: 0;
+    padding: 0;
+    text-align: center;
+}
+
+h2 {
+    margin-top: 20px;
+    color: #333;
+}
+
+/* Chessboard grid */
+.chessboard {
+    display: grid;
+    grid-template-columns: repeat(8, 60px);
+    grid-template-rows: repeat(8, 60px);
+    gap: 2px;
+    margin: 20px auto;
+    width: 484px; /* 8 * 60 + 7 gaps */
+    border: 2px solid #333;
+    background-color: #333;
+}
+
+/* Individual cells */
+.cell {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 16px;
+    user-select: none;
+    cursor: default;
+    transition: background 0.2s, color 0.2s;
+}
+
+/* Cell colors */
+.cell.white {
+    background-color: #eee;
+}
+
+.cell.black {
+    background-color: #666;
+    color: #fff;
+}
+
+/* Pieces */
+.king {
+    color: gold;
+}
+
+.enemy {
+    color: red;
+}
+
+/* Feedback message */
+.feedback {
+    margin: 10px 0;
+    font-weight: bold;
+    color: #007bff;
+}
+
+/* Move form styling */
+form {
+    margin-top: 15px;
+}
+
+form input[type="text"] {
+    width: 60px;
+    text-align: center;
+    padding: 5px;
+    font-size: 14px;
+}
+
+form button {
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
+    background-color: #007bff;
+    border: none;
+    color: white;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+form button:hover {
+    background-color: #0056b3;
+}
+
+/* Back link styling */
+a {
+    text-decoration: none;
+    color: #007bff;
+    font-weight: bold;
+}
+
+a:hover {
+    text-decoration: underline;
+}

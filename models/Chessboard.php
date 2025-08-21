@@ -51,18 +51,36 @@ class Chessboard {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    // Update King's position
-    public function moveKing($moveNumber, $x, $y) {
-        $sql = "INSERT INTO {$this->table} (move_number, piece_type, position_x, position_y, is_enemy)
-                VALUES (:move_number, 'King', :position_x, :position_y, 0)";
-        $stmt = $this->conn->prepare($sql);
+ // Update King's position instead of adding a new row
+public function moveKing($moveNumber, $x, $y) {
+    // Get latest king move
+    $sql = "SELECT id FROM {$this->table} WHERE piece_type='King' ORDER BY move_number DESC LIMIT 1";
+    $stmt = $this->conn->query($sql);
+    $king = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        return $stmt->execute([
+    if ($king) {
+        // Update existing king
+        $sqlUpdate = "UPDATE {$this->table} SET position_x=:x, position_y=:y, move_number=:move_number WHERE id=:id";
+        $stmtUpdate = $this->conn->prepare($sqlUpdate);
+        return $stmtUpdate->execute([
+            ':x' => $x,
+            ':y' => $y,
             ':move_number' => $moveNumber,
-            ':position_x'  => $x,
-            ':position_y'  => $y
+            ':id' => $king['id']
+        ]);
+    } else {
+        // No king yet, insert new
+        $sqlInsert = "INSERT INTO {$this->table} (move_number, piece_type, position_x, position_y, is_enemy)
+                      VALUES (:move_number, 'King', :x, :y, 0)";
+        $stmtInsert = $this->conn->prepare($sqlInsert);
+        return $stmtInsert->execute([
+            ':move_number' => $moveNumber,
+            ':x' => $x,
+            ':y' => $y
         ]);
     }
+}
+
 
     // Check if a square is occupied
     public function isOccupied($moveNumber, $x, $y) {
@@ -85,4 +103,11 @@ class Chessboard {
         $sql = "DELETE FROM {$this->table}";
         return $this->conn->exec($sql);
     }
+
+    public function spawnEnemies($moveNumber, $enemyArray) {
+    foreach ($enemyArray as $enemy) {
+        $this->addPiece($moveNumber, $enemy['type'], $enemy['x'], $enemy['y'], 1);
+    }
+}
+
 }

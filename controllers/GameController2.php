@@ -14,29 +14,42 @@ class GamesController {
     // Show chessboard
     public function index() {
         $pieces = $this->chessboard->getAllPieces();
-        include __DIR__ . '/../views/games.php'; // adjusted path
+        include __DIR__ . '/../views/game.php'; // adjusted path
     }
 
-    // Reset the chessboard
-    public function reset() {
-        $this->chessboard->resetBoard();
-        $this->moveNumber = 0;
-        header("Location: index.php");
-        exit;
-    }
+   public function reset() {
+    // Clear the board
+    $this->chessboard->resetBoard();
+
+    // Reset move number
+    $this->moveNumber = 0;
+
+    // Place single king at starting position
+    $this->chessboard->moveKing($this->moveNumber, 1, 1);
+
+    // Optionally redirect
+    header("Location: index.php?action=play_game");
+    exit;
+}
+
 
     // Start a new game (King + some enemies)
-    public function startGame() {
-        $this->reset(); // clear board first
-        $this->moveNumber = 0;
+public function startGame() {
+    $this->reset(); // clear board first
+    $this->moveNumber = 0;
 
-        // Place King at (1,1)
-        $this->chessboard->addPiece($this->moveNumber, 'King', 1, 1, 0);
+    // Place King at (1,1) using moveKing (prevents duplicates)
+    $this->chessboard->moveKing($this->moveNumber, 1, 1);
 
-        // Place some enemies
-        $this->chessboard->addPiece($this->moveNumber, 'Pawn', 2, 2, 1);
-        $this->chessboard->addPiece($this->moveNumber, 'Knight', 3, 3, 1);
-    }
+    // Place some enemies
+    $enemies = [
+        ['type' => 'Pawn', 'x' => 2, 'y' => 2],
+        ['type' => 'Knight', 'x' => 3, 'y' => 3]
+    ];
+
+    $this->chessboard->spawnEnemies($this->moveNumber, $enemies);
+}
+
 
     // Move the King
     public function moveKing($x, $y) {
@@ -54,4 +67,20 @@ class GamesController {
     public function getBoardState() {
         return $this->chessboard->getAllPieces();
     }
+
+public function processMove($kingMove, $enemyArray) {
+    $this->moveNumber++;
+
+    // Move king
+    $x = $kingMove['x'];
+    $y = $kingMove['y'];
+    $this->moveKing($x, $y);
+
+    // Spawn new enemies
+    $this->chessboard->spawnEnemies($this->moveNumber, $enemyArray);
+
+    // Return current board state
+    return $this->chessboard->getPiecesByMove($this->moveNumber);
+}
+
 }
