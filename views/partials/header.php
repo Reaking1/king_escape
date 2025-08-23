@@ -7,7 +7,6 @@
 <head>
     <meta charset="UTF-8">
     <title>The King's Escape</title>
-    <link rel="stylesheet" href="../../assets/css/styles.css"> <!-- adjust path based on your file structure -->
 </head>
 <body>
     <header style="padding: 20px; background: #007bff; color: white; text-align:center;">

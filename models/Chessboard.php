@@ -1,7 +1,13 @@
 <?php
+
+
+require_once __DIR__ . '../../init_db.php';
 class Chessboard {
     private $conn;
     private $table = "chessboard_positions";
+
+       private $db;
+
 
     // Constructor receives DB connection
     public function __construct($db) {
@@ -34,11 +40,39 @@ class Chessboard {
     }
 
     // Get ALL pieces (regardless of move number)
-    public function getAllPieces() {
-        $sql = "SELECT * FROM {$this->table} ORDER BY move_number ASC";
-        $stmt = $this->conn->query($sql);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+public function getAllPieces($gameId, $moveNumber = null) {
+    try {
+        $query = "
+            SELECT cp.id, cp.move_number, cp.piece_type, cp.position_x, cp.position_y, cp.is_enemy
+            FROM chessboard_positions cp
+            INNER JOIN games g ON g.id = :gameId
+            WHERE 1=1
+        ";
+
+        // If we want pieces for a specific move
+        if ($moveNumber !== null) {
+            $query .= " AND cp.move_number = :moveNumber";
+        }
+
+       $stmt = $this->conn->prepare($query);
+
+
+        $stmt->bindValue(':gameId', $gameId, PDO::PARAM_INT);
+
+        if ($moveNumber !== null) {
+            $stmt->bindValue(':moveNumber', $moveNumber, PDO::PARAM_INT);
+        }
+
+        $stmt->execute();
+        $pieces = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return $pieces;
+    } catch (PDOException $e) {
+        error_log("Error fetching pieces: " . $e->getMessage());
+        return [];
     }
+}
+
 
     // Get King’s current position
     public function getKingPosition($moveNumber) {

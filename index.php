@@ -44,8 +44,9 @@ include __DIR__ . '/views/partials/header.php';
 // Route based on action
 switch ($action) {
     case 'play_game':
-        // Get current board state
-        $pieces = $game->getBoardState();
+        $gameId = 1; // or get it from session / DB
+$pieces = $game->getBoardState($gameId);
+
         include __DIR__ . '/views/game.php';
         break;
 

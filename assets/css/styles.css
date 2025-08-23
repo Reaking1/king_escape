@@ -1,6 +1,6 @@
 /* assets/css/styles.css */
 
-/* General body styles */
+/* ---------------- General Body ---------------- */
 body {
     font-family: Arial, sans-serif;
     background-color: #f5f5f5;
@@ -14,19 +14,25 @@ h2 {
     color: #333;
 }
 
-/* Chessboard grid */
+/* ---------------- Chessboard Wrapper ---------------- */
+.chessboard-wrapper {
+    display: inline-block;
+    position: relative;
+    width: 480px;  /* 8 columns * 60px */
+    height: 480px; /* 8 rows * 60px */
+}
+
+/* ---------------- Chessboard Grid ---------------- */
 .chessboard {
     display: grid;
     grid-template-columns: repeat(8, 60px);
     grid-template-rows: repeat(8, 60px);
-    gap: 2px;
+    gap: 0;
     margin: 20px auto;
-    width: 484px; /* 8 * 60 + 7 gaps */
     border: 2px solid #333;
-    background-color: #333;
 }
 
-/* Individual cells */
+/* ---------------- Individual Cells ---------------- */
 .cell {
     width: 60px;
     height: 60px;
@@ -34,13 +40,11 @@ h2 {
     align-items: center;
     justify-content: center;
     font-weight: bold;
-    font-size: 16px;
+    font-size: 20px;
     user-select: none;
-    cursor: default;
-    transition: background 0.2s, color 0.2s;
 }
 
-/* Cell colors */
+/* ---------------- Cell Colors ---------------- */
 .cell.white {
     background-color: #eee;
 }
@@ -50,25 +54,55 @@ h2 {
     color: #fff;
 }
 
-/* Pieces */
+/* ---------------- Chess Pieces ---------------- */
 .king {
     color: gold;
+    font-size: 20px;
 }
 
 .enemy {
     color: red;
+    font-size: 18px;
 }
 
-/* Feedback message */
+/* ---------------- Coordinates ---------------- */
+/* File letters (A–H) */
+.file-label {
+    position: absolute;
+    bottom: -20px;       /* distance under board */
+    width: 60px;
+    height: 20px;
+    text-align: center;
+    font-weight: bold;
+    left: 0;             /* initial left */
+}
+
+/* Rank numbers (1–8) */
+.rank-label {
+    position: absolute;
+    left: -20px;         /* distance left of board */
+    width: 20px;
+    height: 60px;
+    text-align: center;
+    font-weight: bold;
+    top: 0;              /* initial top */
+}
+
+
+/* ---------------- Feedback Message ---------------- */
 .feedback {
-    margin: 10px 0;
+    margin: 15px auto;
+    padding: 10px;
+    background: #f4f4f4;
+    border: 1px solid #ccc;
+    display: inline-block;
     font-weight: bold;
     color: #007bff;
 }
 
-/* Move form styling */
+/* ---------------- Move Form ---------------- */
 form {
-    margin-top: 15px;
+    margin-top: 20px;
 }
 
 form input[type="text"] {
@@ -93,7 +127,7 @@ form button:hover {
     background-color: #0056b3;
 }
 
-/* Back link styling */
+/* ---------------- Links ---------------- */
 a {
     text-decoration: none;
     color: #007bff;

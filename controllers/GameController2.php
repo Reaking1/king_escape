@@ -7,13 +7,28 @@ class GamesController {
     private $chessboard;
     private $moveNumber = 0; // track current move
 
-    public function __construct($pdo) {
-        $this->chessboard = new Chessboard($pdo);
+
+
+ public function __construct($db) {
+    $this->chessboard = new Chessboard($db);
+}
+
+    public function getAllPieces($gameId, $moveNumber = null) {
+        $pieces = $this->chessboard->getAllPieces($gameId, $moveNumber);
+
+        // Output as JSON (for frontend AJAX/JS)
+        header('Content-Type: application/json');
+        echo json_encode($pieces);
     }
+
+  
 
     // Show chessboard
     public function index() {
-        $pieces = $this->chessboard->getAllPieces();
+    // Use the controller’s move counter (or query max move from DB if needed)
+    $latestMove = $this->moveNumber;
+    // Get only the pieces for the current move
+    $pieces = $this->chessboard->getPiecesByMove($latestMove);
         include __DIR__ . '/../views/game.php'; // adjusted path
     }
 
@@ -24,12 +39,6 @@ class GamesController {
     // Reset move number
     $this->moveNumber = 0;
 
-    // Place single king at starting position
-    $this->chessboard->moveKing($this->moveNumber, 1, 1);
-
-    // Optionally redirect
-    header("Location: index.php?action=play_game");
-    exit;
 }
 
 
@@ -64,9 +73,10 @@ public function startGame() {
     }
 
     // Get current board state
-    public function getBoardState() {
-        return $this->chessboard->getAllPieces();
-    }
+   public function getBoardState($gameId) {
+    return $this->chessboard->getAllPieces($gameId);
+}
+
 
 public function processMove($kingMove, $enemyArray) {
     $this->moveNumber++;
