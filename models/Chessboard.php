@@ -1,147 +1,205 @@
 <?php
+// models/Chessboard.php
 
-
-require_once __DIR__ . '../../init_db.php';
 class Chessboard {
     private $conn;
-    private $table = "chessboard_positions";
 
-       private $db;
-
-
-    // Constructor receives DB connection
     public function __construct($db) {
         $this->conn = $db;
     }
 
-    // Insert a new piece (King or Enemy)
-    public function addPiece($moveNumber, $pieceType, $x, $y, $isEnemy) {
-        $sql = "INSERT INTO {$this->table} 
-                (move_number, piece_type, position_x, position_y, is_enemy)
-                VALUES (:move_number, :piece_type, :position_x, :position_y, :is_enemy)";
+    /**
+     * Get or create a new game for a player
+     */
+    public function getOrCreateGame($playerId) {
+        // Look for an in-progress game
+        $sql = "SELECT id FROM games WHERE player_id = :player_id AND result = 'in_progress' LIMIT 1";
         $stmt = $this->conn->prepare($sql);
+        $stmt->execute([':player_id' => $playerId]);
+        $game = $stmt->fetch(PDO::FETCH_ASSOC);
 
+        if ($game) {
+            return $game['id'];
+        }
+
+        // Otherwise create one
+        $sql = "INSERT INTO games (player_id) VALUES (:player_id)";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([':player_id' => $playerId]);
+
+        return $this->conn->lastInsertId();
+    }
+
+    /**
+     * Place a new piece on the board
+     */
+    public function placePiece($gameId, $pieceTypeName, $isEnemy, $x, $y) {
+        // Ensure piece type exists
+        $pieceTypeId = $this->getOrCreatePieceType($pieceTypeName, $isEnemy);
+
+        $sql = "INSERT INTO game_pieces (game_id, piece_type_id, position_x, position_y)
+                VALUES (:game_id, :piece_type_id, :x, :y)";
+        $stmt = $this->conn->prepare($sql);
         return $stmt->execute([
-            ':move_number' => $moveNumber,
-            ':piece_type'  => $pieceType,
-            ':position_x'  => $x,
-            ':position_y'  => $y,
-            ':is_enemy'    => $isEnemy
+            ':game_id' => $gameId,
+            ':piece_type_id' => $pieceTypeId,
+            ':x' => $x,
+            ':y' => $y
         ]);
     }
 
-    // Get all pieces for a given move
-    public function getPiecesByMove($moveNumber) {
-        $sql = "SELECT * FROM {$this->table} WHERE move_number = :move_number";
+    /**
+     * Get or create piece type
+     */
+    private function getOrCreatePieceType($name, $isEnemy) {
+        $sql = "SELECT id FROM piece_types WHERE name = :name AND is_enemy = :is_enemy LIMIT 1";
         $stmt = $this->conn->prepare($sql);
-        $stmt->execute([':move_number' => $moveNumber]);
+        $stmt->execute([
+            ':name' => $name,
+            ':is_enemy' => $isEnemy
+        ]);
+        $type = $stmt->fetch(PDO::FETCH_ASSOC);
 
+        if ($type) {
+            return $type['id'];
+        }
+
+        // Create if not found
+        $sql = "INSERT INTO piece_types (name, is_enemy) VALUES (:name, :is_enemy)";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([
+            ':name' => $name,
+            ':is_enemy' => $isEnemy
+        ]);
+        return $this->conn->lastInsertId();
+    }
+
+    /**
+     * Move the King to a new position
+     */
+    public function moveKing($gameId, $x, $y, $moveNumber) {
+        // Find King in this game
+        $sql = "SELECT gp.id 
+                FROM game_pieces gp
+                INNER JOIN piece_types pt ON gp.piece_type_id = pt.id
+                WHERE gp.game_id = :game_id AND pt.name = 'King' LIMIT 1";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([':game_id' => $gameId]);
+        $king = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$king) {
+            return false; // no king to move
+        }
+
+        // Update position
+        $sql = "UPDATE game_pieces 
+                SET position_x = :x, position_y = :y
+                WHERE id = :id";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([
+            ':x' => $x,
+            ':y' => $y,
+            ':id' => $king['id']
+        ]);
+
+        // Record move
+        $sql = "INSERT INTO moves (game_id, move_number, piece_id, from_x, from_y, to_x, to_y)
+                VALUES (:game_id, :move_number, :piece_id,
+                        (SELECT position_x FROM game_pieces WHERE id = :piece_id),
+                        (SELECT position_y FROM game_pieces WHERE id = :piece_id),
+                        :to_x, :to_y)";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([
+            ':game_id' => $gameId,
+            ':move_number' => $moveNumber,
+            ':piece_id' => $king['id'],
+            ':to_x' => $x,
+            ':to_y' => $y
+        ]);
+
+        return true;
+    }
+
+    /**
+     * Get all pieces on the board for a game
+     */
+    public function getAllPieces($gameId) {
+        $sql = "SELECT gp.id, pt.name AS piece_type, gp.position_x, gp.position_y, pt.is_enemy
+                FROM game_pieces gp
+                INNER JOIN piece_types pt ON gp.piece_type_id = pt.id
+                WHERE gp.game_id = :game_id";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([':game_id' => $gameId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    // Get ALL pieces (regardless of move number)
-public function getAllPieces($gameId, $moveNumber = null) {
-    try {
-        $query = "
-            SELECT cp.id, cp.move_number, cp.piece_type, cp.position_x, cp.position_y, cp.is_enemy
-            FROM chessboard_positions cp
-            INNER JOIN games g ON g.id = :gameId
-            WHERE 1=1
-        ";
-
-        // If we want pieces for a specific move
-        if ($moveNumber !== null) {
-            $query .= " AND cp.move_number = :moveNumber";
-        }
-
-       $stmt = $this->conn->prepare($query);
-
-
-        $stmt->bindValue(':gameId', $gameId, PDO::PARAM_INT);
-
-        if ($moveNumber !== null) {
-            $stmt->bindValue(':moveNumber', $moveNumber, PDO::PARAM_INT);
-        }
-
-        $stmt->execute();
-        $pieces = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        return $pieces;
-    } catch (PDOException $e) {
-        error_log("Error fetching pieces: " . $e->getMessage());
-        return [];
-    }
-}
-
-
-    // Get King’s current position
-    public function getKingPosition($moveNumber) {
-        $sql = "SELECT position_x, position_y 
-                FROM {$this->table} 
-                WHERE move_number = :move_number AND piece_type = 'King'";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->execute([':move_number' => $moveNumber]);
-
-        return $stmt->fetch(PDO::FETCH_ASSOC);
-    }
-
- // Update King's position instead of adding a new row
-public function moveKing($moveNumber, $x, $y) {
-    // Get latest king move
-    $sql = "SELECT id FROM {$this->table} WHERE piece_type='King' ORDER BY move_number DESC LIMIT 1";
-    $stmt = $this->conn->query($sql);
-    $king = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if ($king) {
-        // Update existing king
-        $sqlUpdate = "UPDATE {$this->table} SET position_x=:x, position_y=:y, move_number=:move_number WHERE id=:id";
-        $stmtUpdate = $this->conn->prepare($sqlUpdate);
-        return $stmtUpdate->execute([
-            ':x' => $x,
-            ':y' => $y,
-            ':move_number' => $moveNumber,
-            ':id' => $king['id']
-        ]);
-    } else {
-        // No king yet, insert new
-        $sqlInsert = "INSERT INTO {$this->table} (move_number, piece_type, position_x, position_y, is_enemy)
-                      VALUES (:move_number, 'King', :x, :y, 0)";
-        $stmtInsert = $this->conn->prepare($sqlInsert);
-        return $stmtInsert->execute([
-            ':move_number' => $moveNumber,
-            ':x' => $x,
-            ':y' => $y
-        ]);
-    }
-}
-
-
-    // Check if a square is occupied
-    public function isOccupied($moveNumber, $x, $y) {
+    /**
+     * Check if square is occupied
+     */
+    public function isOccupied($gameId, $x, $y) {
         $sql = "SELECT COUNT(*) as cnt 
-                FROM {$this->table} 
-                WHERE move_number = :move_number AND position_x = :x AND position_y = :y";
+                FROM game_pieces 
+                WHERE game_id = :game_id AND position_x = :x AND position_y = :y";
         $stmt = $this->conn->prepare($sql);
         $stmt->execute([
-            ':move_number' => $moveNumber,
+            ':game_id' => $gameId,
             ':x' => $x,
             ':y' => $y
         ]);
-
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row['cnt'] > 0;
     }
 
-    // Clear the board
-    public function resetBoard() {
-        $sql = "DELETE FROM {$this->table}";
-        return $this->conn->exec($sql);
+    /**
+     * Clear board for a game
+     */
+    public function clearBoard($gameId) {
+        $sql = "DELETE FROM game_pieces WHERE game_id = :game_id";
+        $stmt = $this->conn->prepare($sql);
+        return $stmt->execute([':game_id' => $gameId]);
     }
 
-    public function spawnEnemies($moveNumber, $enemyArray) {
-    foreach ($enemyArray as $enemy) {
-        $this->addPiece($moveNumber, $enemy['type'], $enemy['x'], $enemy['y'], 1);
+public function ensureGameExists($gameId) {
+    $sql = "SELECT id FROM games WHERE id = :gameId";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->execute([':gameId' => $gameId]);
+    $game = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$game) {
+        $playerId = 1; // make sure player with id 1 exists
+
+        // Insert game and get the auto-incremented ID
+        $this->conn->exec("INSERT INTO games (player_id) VALUES ($playerId)");
+        $newGameId = $this->conn->lastInsertId();
+
+        return $newGameId; // return the ID of the new game
     }
+
+    return $game['id']; // return existing game ID
 }
 
+
+
+
+public function getPieceTypeId($name) {
+    $sql = "SELECT id FROM piece_types WHERE name = :name";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->execute([':name' => $name]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ? $row['id'] : null;
+}
+
+public function addPieceToGame($gameId, $pieceTypeId, $x, $y) {
+    $sql = "INSERT INTO game_pieces (game_id, piece_type_id, position_x, position_y)
+            VALUES (:gameId, :pieceTypeId, :x, :y)";
+    $stmt = $this->conn->prepare($sql);
+    return $stmt->execute([
+        ':gameId' => $gameId,
+        ':pieceTypeId' => $pieceTypeId,
+        ':x' => $x,
+        ':y' => $y
+    ]);
+}
+
+    
 }

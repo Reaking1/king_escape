@@ -62,7 +62,7 @@ h2 {
 
 .enemy {
     color: red;
-    font-size: 18px;
+    font-size: 18px; 
 }
 
 /* ---------------- Coordinates ---------------- */
@@ -136,4 +136,25 @@ a {
 
 a:hover {
     text-decoration: underline;
+}
+
+/* ---------------- Chess Pieces Overlay ---------------- */
+.piece {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    pointer-events: none; /* so clicks go through to cells if needed */
+}
+
+
+.piece.king {
+    color: gold;
+}
+
+.piece.enemy {
+    color: red;
 }

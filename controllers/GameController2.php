@@ -5,58 +5,69 @@ require_once __DIR__ . '/../models/Chessboard.php';
 
 class GamesController {
     private $chessboard;
-    private $moveNumber = 0; // track current move
+    private $moveNumber = 0;
+    private $gameId;
 
-
-
- public function __construct($db) {
+public function __construct($db, $gameId = 1) {
     $this->chessboard = new Chessboard($db);
+
+    // Ensure game exists and get the actual ID
+    $this->gameId = $this->chessboard->ensureGameExists($gameId);
+
+    // Start game only if it's a new game
+    $pieces = $this->chessboard->getAllPieces($this->gameId);
+    if (empty($pieces)) {
+        $this->startGame();
+    }
 }
 
-    public function getAllPieces($gameId, $moveNumber = null) {
-        $pieces = $this->chessboard->getAllPieces($gameId, $moveNumber);
 
-        // Output as JSON (for frontend AJAX/JS)
+
+    // Show chessboard
+    public function index() {
+        $pieces = $this->chessboard->getAllPieces($this->gameId);
+
+        // If no pieces yet, start a new game
+        if (empty($pieces)) {
+            $this->startGame();
+            $pieces = $this->chessboard->getAllPieces($this->gameId);
+        }
+
+        include __DIR__ . '/../views/game.php';
+    }
+
+    // Return board state as JSON (AJAX)
+    public function getAllPieces() {
+        $pieces = $this->chessboard->getAllPieces($this->gameId);
         header('Content-Type: application/json');
         echo json_encode($pieces);
     }
 
-  
-
-    // Show chessboard
-    public function index() {
-    // Use the controller’s move counter (or query max move from DB if needed)
-    $latestMove = $this->moveNumber;
-    // Get only the pieces for the current move
-    $pieces = $this->chessboard->getPiecesByMove($latestMove);
-        include __DIR__ . '/../views/game.php'; // adjusted path
+    // Reset the board and start fresh
+    public function reset() {
+        $this->chessboard->clearBoard($this->gameId);
+        $this->moveNumber = 0;
     }
 
-   public function reset() {
-    // Clear the board
-    $this->chessboard->resetBoard();
-
-    // Reset move number
-    $this->moveNumber = 0;
-
-}
-
-
-    // Start a new game (King + some enemies)
+    // Start a new game with King + Enemies
 public function startGame() {
-    $this->reset(); // clear board first
-    $this->moveNumber = 0;
+    // 1. Ensure a game exists for this player
+    $gameId = $this->gameId;
 
-    // Place King at (1,1) using moveKing (prevents duplicates)
-    $this->chessboard->moveKing($this->moveNumber, 1, 1);
+    // 2. Place the King at starting position
+    $kingId = $this->chessboard->getPieceTypeId('King');
+    $this->chessboard->addPieceToGame($gameId, $kingId, 1, 1);
 
-    // Place some enemies
-    $enemies = [
-        ['type' => 'Pawn', 'x' => 2, 'y' => 2],
-        ['type' => 'Knight', 'x' => 3, 'y' => 3]
+    // 3. Spawn some enemies
+    $enemyData = [
+        ['name' => 'Pawn', 'x' => 2, 'y' => 2],
+        ['name' => 'Knight', 'x' => 3, 'y' => 3]
     ];
 
-    $this->chessboard->spawnEnemies($this->moveNumber, $enemies);
+    foreach ($enemyData as $enemy) {
+        $enemyId = $this->chessboard->getPieceTypeId($enemy['name']);
+        $this->chessboard->addPieceToGame($gameId, $enemyId, $enemy['x'], $enemy['y']);
+    }
 }
 
 
@@ -64,33 +75,37 @@ public function startGame() {
     public function moveKing($x, $y) {
         $this->moveNumber++;
 
-        // Check if target square is occupied
-        if ($this->chessboard->isOccupied($this->moveNumber, $x, $y)) {
-            return false; // invalid move
+        // Check if occupied
+        if ($this->chessboard->isOccupied($this->gameId, $x, $y)) {
+            return false;
         }
 
-        return $this->chessboard->moveKing($this->moveNumber, $x, $y);
+        return $this->chessboard->moveKing($this->gameId, $x, $y, $this->moveNumber);
     }
 
-    // Get current board state
-   public function getBoardState($gameId) {
-    return $this->chessboard->getAllPieces($gameId);
+// In GamesController
+public function getBoardState() {
+    return $this->chessboard->getAllPieces($this->gameId);
 }
 
 
-public function processMove($kingMove, $enemyArray) {
-    $this->moveNumber++;
+    // Process a turn (king moves + new enemies)
+    public function processMove($kingMove, $enemyArray) {
+        $this->moveNumber++;
 
-    // Move king
-    $x = $kingMove['x'];
-    $y = $kingMove['y'];
-    $this->moveKing($x, $y);
+        // Move King
+        $x = $kingMove['x'];
+        $y = $kingMove['y'];
+        $this->moveKing($x, $y);
 
-    // Spawn new enemies
-    $this->chessboard->spawnEnemies($this->moveNumber, $enemyArray);
+        // Spawn new enemies
+        foreach ($enemyArray as $enemy) {
+            $this->chessboard->placePiece($this->gameId, $enemy['type'], true, $enemy['x'], $enemy['y']);
+        }
 
-    // Return current board state
-    return $this->chessboard->getPiecesByMove($this->moveNumber);
-}
+        // Return updated board
+        return $this->chessboard->getAllPieces($this->gameId);
+    }
 
+    
 }

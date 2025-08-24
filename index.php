@@ -38,22 +38,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 }
 
-// Load header
-include __DIR__ . '/views/partials/header.php';
+// Determine action from query parameter
+$action = $_GET['action'] ?? 'home';
+$gameId = $_GET['game_id'] ?? 1; // default to 1 if not provided
 
-// Route based on action
 switch ($action) {
     case 'play_game':
-        $gameId = 1; // or get it from session / DB
-$pieces = $game->getBoardState($gameId);
-
+        $game = new GamesController($pdo, $gameId); // pass $gameId
+        $pieces = $game->getBoardState();          // fetch pieces for this game
+        include __DIR__ . '/views/partials/header.php';
         include __DIR__ . '/views/game.php';
+        include __DIR__ . '/views/partials/footer.php';
         break;
 
     default:
-        include __DIR__ . '/views/home.php'; // create a simple home page
+        include __DIR__ . '/views/partials/header.php';
+        include __DIR__ . '/views/home.php';
+        include __DIR__ . '/views/partials/footer.php';
         break;
 }
 
-// Load footer
-include __DIR__ . '/views/partials/footer.php';

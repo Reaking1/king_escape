@@ -1,14 +1,20 @@
 <?php
 // init_db.php
-require_once "config.php";
+$host = "localhost";
+$username = "root";  // Default XAMPP
+$password = "";      // Default XAMPP
 
 try {
+    // Connect WITHOUT specifying database (so we can create it)
+    $pdo = new PDO("mysql:host=$host;charset=utf8", $username, $password);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
     // 1. Create database if not exists
-    $pdo->exec("CREATE DATABASE IF NOT EXISTS king_escape CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    echo "✅ Database 'king_escape' created or already exists.<br>";
+    $pdo->exec("CREATE DATABASE IF NOT EXISTS kings_escape CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    echo "✅ Database 'kings_escape' created or already exists.<br>";
 
     // Switch to using the new database
-    $pdo->exec("USE king_escape");
+    $pdo->exec("USE kings_escape");
 
     // 2. Create chessboard_positions table
     $pdo->exec("
