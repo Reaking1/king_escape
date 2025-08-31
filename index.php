@@ -1,75 +1,65 @@
 <?php
 // index.php
-
 session_start();
 
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/controllers/GameController2.php'; // correct controller
+require_once __DIR__ . '/controllers/GameController2.php';
 
 // ---------------------------
 // 1. Get player ID
 // ---------------------------
-$playerId = $_SESSION['player_id'] ?? 1; // fallback to 1 if no session
+$playerId = $_SESSION['player_id'] ?? 1;
 
 // ---------------------------
-// 2. Get game ID from query, or default to current player's game
+// 2. Instantiate controller
 // ---------------------------
-$gameId = $_GET['game_id'] ?? null;
+$gameController = new GamesController($pdo, $playerId);
 
 // ---------------------------
-// 3. Instantiate controller
+// 3. Handle form submissions
 // ---------------------------
-$game = new GamesController($pdo, $playerId); // pass playerId to constructor
+$moveMessage = "";
 
-// Use existing game if specified
-
-// ---------------------------
-// 4. Handle form submissions
-// ---------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Start Game
     if (isset($_POST['start_game'])) {
-        $game->startGame();
+        $gameController->startGame();
     }
 
     // Move King
     if (isset($_POST['king_move'])) {
-        $newPos = strtoupper(trim($_POST['king_move']));
-        $cols = ['A'=>1,'B'=>2,'C'=>3,'D'=>4,'E'=>5,'F'=>6,'G'=>7,'H'=>8];
-        $col = substr($newPos,0,1);
-        $row = intval(substr($newPos,1));
+        $input = strtoupper(trim($_POST['king_move'])); // e.g., "E2"
+        if (preg_match('/^[A-H][1-8]$/', $input)) {
+            $x = ord($input[0]) - 64; // A=1, B=2...
+            $y = intval($input[1]);
 
-        if (isset($cols[$col])) {
-            $x = $cols[$col];
-            $y = $row;
-            $moveMessage = $game->moveKing($x, $y)
-                ? "King moved to $newPos"
-                : "Invalid move: $newPos";
+            $result = $gameController->processMove(['x' => $x, 'y' => $y]);
+            $pieces = $result['pieces'];
+
+            if ($result['win']) {
+                $moveMessage = "🎉 Congratulations, you escaped!";
+            } else {
+                $moveMessage = "✅ King moved to $input (enemies spawned!)";
+            }
         } else {
-            $moveMessage = "Invalid move: $newPos";
+            $moveMessage = "⚠️ Enter a valid move (A1–H8).";
+            $pieces = $gameController->getBoardState();
         }
     }
 }
 
 // ---------------------------
-// 5. Determine action
+// 4. Determine action
 // ---------------------------
 $action = $_GET['action'] ?? 'home';
+include __DIR__ . '/views/partials/header.php';
 
-switch ($action) {
-    case 'play_game':
-        // Fetch current board state
-        $pieces = $game->getBoardState();
-
-        include __DIR__ . '/views/partials/header.php';
-        include __DIR__ . '/views/game.php';
-        include __DIR__ . '/views/partials/footer.php';
-        break;
-
-    default:
-        include __DIR__ . '/views/partials/header.php';
-        include __DIR__ . '/views/home.php';
-        include __DIR__ . '/views/partials/footer.php';
-        break;
+if ($action === 'play_game') {
+    $pieces = $gameController->getPieces(); // only fetch board pieces
+    include __DIR__ . '/views/game.php';
+} else {
+    include __DIR__ . '/views/home.php';
 }
+
+include __DIR__ . '/views/partials/footer.php';
