@@ -156,5 +156,17 @@ a:hover {
 }
 
 .piece.enemy {
-    color: red;
+    color: crimson;
+    font-size: 32px;
+}
+
+
+.piece.king, .piece.enemy {
+    font-size: 36px; /* bigger inside 60px cells */
+}
+
+.feedback.win {
+    background: #28a745;
+    color: white;
+    border: 2px solid #1e7e34;
 }

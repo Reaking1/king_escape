@@ -11,24 +11,32 @@ class Chessboard {
     /**
      * Get or create a new game for a player
      */
-    public function getOrCreateGame($playerId) {
-        // Look for an in-progress game
-        $sql = "SELECT id FROM games WHERE player_id = :player_id AND result = 'in_progress' LIMIT 1";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->execute([':player_id' => $playerId]);
-        $game = $stmt->fetch(PDO::FETCH_ASSOC);
+// Chessboard.php
+public function getOrCreateGame($playerId) {
+    // 1. Look for an existing in-progress game
+    $sql = "SELECT id FROM games WHERE player_id = :player_id AND result = 'in_progress' LIMIT 1";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->execute([':player_id' => $playerId]);
+    $game = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($game) {
-            return $game['id'];
-        }
-
-        // Otherwise create one
-        $sql = "INSERT INTO games (player_id) VALUES (:player_id)";
-        $stmt = $this->conn->prepare($sql);
-        $stmt->execute([':player_id' => $playerId]);
-
-        return $this->conn->lastInsertId();
+    if ($game) {
+        return $game['id'];
     }
+
+    // 2. Otherwise create a new game
+    $sql = "INSERT INTO games (player_id) VALUES (:player_id)";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->execute([':player_id' => $playerId]);
+    return $this->conn->lastInsertId();
+}
+
+// When the game finishes
+public function finishGame($gameId, $result = 'won') {
+    $sql = "UPDATE games SET result = :result, ended_at = NOW() WHERE id = :gameId";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->execute([':result' => $result, ':gameId' => $gameId]);
+}
+
 
     /**
      * Place a new piece on the board
@@ -179,6 +187,16 @@ public function ensureGameExists($gameId) {
 }
 
 
+public function ensureExitExists($gameId, $x=8, $y=8) {
+    $sql = "SELECT id FROM exits WHERE game_id = :gid LIMIT 1";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->execute([':gid'=>$gameId]);
+    if (!$stmt->fetch()) {
+        $sql = "INSERT INTO exits (game_id, exit_x, exit_y) VALUES (:gid, :x, :y)";
+        $stmt = $this->conn->prepare($sql);
+        $stmt->execute([':gid'=>$gameId, ':x'=>$x, ':y'=>$y]);
+    }
+}
 
 
 public function getPieceTypeId($name) {
@@ -201,5 +219,67 @@ public function addPieceToGame($gameId, $pieceTypeId, $x, $y) {
     ]);
 }
 
-    
+
+public function findEarliestEscape($gameId, $startX, $startY, $enemySpawnArray = []) {
+    // get exit
+    $sql = "SELECT exit_x, exit_y FROM exits WHERE game_id = :gid LIMIT 1";
+    $stmt = $this->conn->prepare($sql);
+    $stmt->execute([':gid'=>$gameId]);
+    $exit = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$exit) return -1;
+
+    $exitX = $exit['exit_x'];
+    $exitY = $exit['exit_y'];
+
+    // BFS queue: [x,y,moveNumber]
+    $queue = [[$startX,$startY,0]];
+    $visited = [];
+
+    while (!empty($queue)) {
+        [$x,$y,$move] = array_shift($queue);
+
+        // reached exit?
+        if ($x == $exitX && $y == $exitY) {
+            return $move;
+        }
+
+        // mark visited at this depth
+        $visited["$x,$y,$move"] = true;
+
+        // --- Spawn enemies for NEXT move (virtual blocking) ---
+        $blockedNext = [];
+        if (isset($enemySpawnArray[$move+1])) {
+            foreach ($enemySpawnArray[$move+1] as $enemy) {
+                $blockedNext["{$enemy['x']},{$enemy['y']}"] = true;
+            }
+        }
+
+        // 8 possible king moves
+        for ($dx=-1;$dx<=1;$dx++) {
+            for ($dy=-1;$dy<=1;$dy++) {
+                if ($dx==0 && $dy==0) continue;
+                $nx = $x+$dx; 
+                $ny = $y+$dy;
+
+                if ($nx<1 || $nx>8 || $ny<1 || $ny>8) continue;
+
+                // skip if occupied by existing DB piece
+                if ($this->isOccupied($gameId,$nx,$ny)) continue;
+
+                // skip if enemy spawns there next turn
+                if (isset($blockedNext["$nx,$ny"])) continue;
+
+                // skip if already visited at this depth
+                if (isset($visited["$nx,$ny,".($move+1)])) continue;
+
+                $queue[] = [$nx,$ny,$move+1];
+            }
+        }
+    }
+
+    return -1; // no escape found
 }
+}
+
+
+

@@ -39,6 +39,18 @@ try {
     ");
     echo "✅ Sample chessboard data inserted.<br>";
 
+    $pdo->exec("
+    CREATE TABLE IF NOT EXISTS exits (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        game_id INT NOT NULL,
+        exit_x INT NOT NULL,
+        exit_y INT NOT NULL,
+        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+    )
+");
+echo "✅ Table 'exits' created.<br>";
+
+
     echo "<br>🎉 Initialization completed successfully!";
 } catch (PDOException $e) {
     die("❌ Database initialization failed: " . $e->getMessage());
